@@ -67,24 +67,31 @@ class HttpClient:
             if report_hook:
                 report_hook(bytes_so_far, chunk_size, total_size)
         return ret
-
-    output = open(file, 'wb')
+    try:
+      output = open(file, 'wb')
+    except IOError, e:
+      print "open %s failed" % file
+      return False
+    
     try:
         response = urllib2.urlopen(url)
         content = chunk_read(response, report_hook=chunk_report)
         output.write(content)
+        return True
     except:
         parsed_link = urlparse.urlsplit(url.encode('utf8'))
         parsed_link = parsed_link._replace(path=urllib.quote(parsed_link.path))
         url = parsed_link.geturl()
-        response = urllib2.urlopen(url)
-        content = chunk_read(response, report_hook=chunk_report)
-        output.write(content)
+        try:
+          response = urllib2.urlopen(url)
+          content = chunk_read(response, report_hook=chunk_report)
+          output.write(content)
+          return True
+        except urllib2.HTTPError, e:
+          print "url:%s ErrorMessage:%s" % (url,e.read())
 
     output.close()
-
-#  def urlencode(self, data):
-#    return urllib.quote(data)
+    return False
 
   def getCookie(self, key):
     for c in self.__cookie:
@@ -95,4 +102,3 @@ class HttpClient:
   def setCookie(self, key, val, domain):
     ck = cookielib.Cookie(version=0, name=key, value=val, port=None, port_specified=False, domain=domain, domain_specified=False, domain_initial_dot=False, path='/', path_specified=True, secure=False, expires=None, discard=True, comment=None, comment_url=None, rest={'HttpOnly': None}, rfc2109=False)
     self.__cookie.set_cookie(ck)
-#self.__cookie.clear() clean cookie

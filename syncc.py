@@ -61,6 +61,9 @@ class Course:
         self.usrname =  config.get('USER','usrname')
         self.passwd = config.get('USER', 'passwd')
         self.pwd = config.get('USER', 'savedir')
+        self.homepages = config.get('HOMEPAGE','homepages').split(";")
+        self.subdirs = config.get('HOMEPAGE','subdirname').split(";")
+        self.filetype = tuple(config.get('HOMEPAGE','filetype').split(";"))
         if not (self.usrname and self.passwd and self.pwd):
             print 'Please setup your account in \'config.ini\''
             pause()
@@ -94,6 +97,9 @@ class Course:
         #return course_urls
         for test_url in course_urls:
             self.get_resource(test_url)
+
+        for url,subdir in zip(self.homepages,self.subdirs):
+            self.get_cource_homepage_resource(url, subdir, self.filetype)
 
 
     def get_resource(self, url):
@@ -135,11 +141,33 @@ class Course:
             content = self.req.Post("http://course.ucas.ac.cn/portal/tool/{0}/?panel=Main".format(wtf_url), postData)
             tmp = re.findall(r'http://course.ucas.ac.cn/access/content/group/[^"]+', content)
             tmp = list(set(tmp))
-            name = get_revalue(folder, r'([^/]+?)/$', 'folder error', 1).replace(' ', '_')
+            name = get_revalue(folder, r'([^/]+?)/$', 'folder error', 0).replace(' ', '_')
             #print name
             self.download(os.path.join(title,name), tmp)
 
         logging.debug(str(res))
+
+    def get_cource_homepage_resource(self, url, subdir, filetype):
+        import HTMLParser
+        import os
+
+        html_parser = HTMLParser.HTMLParser()
+        html = self.req.Get(url)
+        res = re.findall(r'http://[^"]+', html)
+        res = filter(lambda x: x.endswith(filetype), set(res))
+        title = os.path.join(self.pwd, subdir)
+        if not os.path.exists(title):
+            os.makedirs(title)
+        for f in res:
+            name = get_revalue(f, r'([^/]+?)$', 'get name error', 0).replace(' ', '_')
+            _name = os.path.join(title, name)
+            if (not force_update_flag) and check_existed(_name):
+                print '++++++skip' + '  ' + name + ' already exists, skip++++++'
+                logging.info( _name + ' already exists, skip')
+                continue
+            #print 'downloading ' + name
+            logging.info('downloading ' + _name)
+            self.req.Download(f, _name)
 
     def download(self, title, res):
         import os
